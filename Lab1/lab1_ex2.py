@@ -49,7 +49,7 @@ def record_audio(args):
 		# concatenate the values
 		FILENAME = "{}_{}Hz_{}s.wav".format(args.format, args.rate, args.seconds)
 	else:
-		FILENAME = "{}.waw".format(args.name)
+		FILENAME = "{}.wav".format(args.name)
 
 	# overwrite the file if it is already present
 	# - workaround : delete it
