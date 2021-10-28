@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import os
 import tensorflow as tf
+import numpy as np
 
 """Here we want to Extract the MFCC from audio signals.
 The Mel-frequency cepstrum is a representation of the STFT of a sound, that tries to mimic how the 
@@ -11,7 +12,6 @@ tract (which is responsible for sound generation) is manifest in them"""
 
 
 def extract_mfcc(args):
-
     byte_string = tf.io.read_file(filename=args.spectrogram_path)
     float_spectrogram = tf.io.parse_tensor(byte_string, out_type=tf.float32)
     # Let's compute the log-scaled spectrogram
@@ -43,14 +43,23 @@ def extract_mfcc(args):
     mfccs = tf.signal.mfccs_from_log_mel_spectrograms(
         log_mel_spectrogram)[..., :10]
     path_to_mccs = "{}/{}".format(args.work_dir, args.mfccs_filename)
-    tf.io.write_file(filename=path_to_mccs, contents=mfccs)
+    mfccs_strings = tf.strings.as_string(mfccs)
+
+    strings = ""
+    for s in mfccs_strings:
+        strings += s
+    mfccs_strings = ""
+    for st in strings:
+        mfccs_strings += st
+    # print(mfccs_strings)
+    # np.save(path_to_mccs, mfccs.numpy())
+    tf.io.write_file(filename=path_to_mccs, contents=mfccs_strings)
     print("The size of the MFCCs' file is: ", os.path.getsize(path_to_mccs))
 
     if args.visualize_mfccs:
         image = tf.transpose(mfccs)  # Transpose the spectrogram to represent time on x-axis
         image = tf.expand_dims(image, -1)  # Add the 'channel' dimension
         image = tf.math.log(image + 1.e-6)  # take the log of the spectrogram for better visualize
-        print(image)
         """For a grayscale images, the pixel value is a single number that represents the brightness of the pixel.
          The most common pixel format is the byte image, where this number is stored as an 8-bit integer giving a
          range of possible values from 0 to 255. Typically zero is taken to be black, and 255 is taken to be white.
@@ -70,13 +79,14 @@ def main():
     parser = ArgumentParser()
 
     parser.add_argument('--work_dir', type=str, default=None, help='Set the working directory')
-    parser.add_argument('--spectrogram_path', type=str, default=None, help='Set the path to the file you want to process')
+    parser.add_argument('--spectrogram_path', type=str, default=None,
+                        help='Set the path to the file you want to process')
     parser.add_argument('--mel_bins', type=int, default=40, help='Set the mel bins')
     parser.add_argument('--lower_freq', type=int, default=20, help='Set the lower freq')
     parser.add_argument('--upper_freq', type=int, default=4000, help='Set the upper freq')
     parser.add_argument('--mfccs_filename', type=str, default=None)
     parser.add_argument('--visualize_mfccs', action='store_true')
-
+    parser.add_argument('--sample_rate', type=int, default=16000)
     args = parser.parse_args()
 
     extract_mfcc(args)
