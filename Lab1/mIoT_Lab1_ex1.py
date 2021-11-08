@@ -35,6 +35,6 @@ hours = pd.Series(times)
 temps = pd.Series(temps_list)
 hums = pd.Series(hum_list)
 
-pd.DataFrame({'Date': dates, 'Hour': hours, 'Temperature': temps, 'Humidity':hums})\
+pd.DataFrame({'Date': dates, 'Hour': hours, 'Temperature': temps, 'Humidity': hums})\
     .to_csv('WORK_DIR/Ex_Frank/recordings.csv', header=False, index=False, index_label=None)
 

@@ -45,10 +45,10 @@ def extract_mfcc(args):
     path_to_mccs = "{}/{}".format(args.work_dir, args.mfccs_filename)
     mfccs_strings = tf.strings.as_string(mfccs)
 
-    mfccs_strings = ""
+    final_string = ""
     for t in mfccs_strings:
         for s in t:
-            mfccs_strings += s
+            final_string += s
 
     # print(mfccs_strings)
     # np.save(path_to_mccs, mfccs.numpy())
