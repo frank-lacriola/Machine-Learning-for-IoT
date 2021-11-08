@@ -10,7 +10,7 @@ Popen('sudo sh -c "echo performance >'
  shell=True).wait()
 
 
-def mfcc_slow(filepath, args):
+def mfcc(filepath, args):
     print("Starting stft...")
 
     audio = tf.io.read_file(filepath)  # Audio in a string format
@@ -106,7 +106,7 @@ def main():
     parser.add_argument('--mfccs_filename', type=str, default=None)
     parser.add_argument('--sample_rate', type=int, default=16000)
 
-    args = parser.parse_args()
+    args_slow = parser.parse_args()
 
     # Let's iterate over the yes_no files
     for subdir, dirs, files in os.walk(r'../yes_no'):
@@ -115,7 +115,7 @@ def main():
             filepath = subdir + os.sep + filename
 
             starting_time = time.time()
-            mfcc_slow(filepath, args)
+            mfcc(filepath, args_slow)
             times_slow.append(time.time() - starting_time)
 
         avg_slow_time = sum(times_slow)/len(times_slow)
