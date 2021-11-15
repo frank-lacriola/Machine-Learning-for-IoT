@@ -7,9 +7,9 @@ from tensorflow import keras
 
 
 class WindowGenerator:
-    def __init__(self, input_width , label_options, mean, std):
+    def __init__(self, input_width, label_options, mean, std):
         self.input_width = input_width # the number of samples contained in a single window
-        self.label_options = LABEL_OPTIONS
+        self.label_options = label_options
         self.mean = tf.reshape(tf.convert_to_tensor(mean), [1, 1, 2]) # sec arg is the shape and during training the first dim is batch
         self.std = tf.reshape(tf.convert_to_tensor(std), [1, 1, 2]) #
 
@@ -45,7 +45,7 @@ class WindowGenerator:
         ds = tf.keras.preprocessing.timeseries_dataset_from_array( # this is what we need
                 data=data,
                 targets=None,
-                sequence_length=input_width+1,  # + label
+                sequence_length=self.input_width+1,  # + label
                 sequence_stride=1,
                 batch_size=32)  # we'll try to change batch size later
         ds = ds.map(self.preprocess)  # the preprocess will be applied to every batch
