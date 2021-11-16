@@ -58,20 +58,29 @@ class WindowGenerator:
 
 
 class customMAE(keras.metrics.Metric):
-    def __init__(self, name='custom_MAE'):
-        super(customMAE, self).__init__(name=name)
-        self.mae = {}
+    def __init__(self, name='custom_MAE', **kwargs):
+        super(customMAE, self).__init__(name=name, **kwargs)
+        # MAE: we need the sum --> total, and the count --> count to compute the mean
+        self.total = self.add_weight('total', initializer='zero', shape=(2,))
+        self.count = self.add_weight('count', initializer='zeros')
 
+    # We have to iterate over all the dataset and update the state vars
+    # This is computed at every batch
     def update_state(self, y_true, y_pred, sample_weight=None):
-        temp_pred = y_pred[0]
-        hum_pred = y_pred[1]
-        temp_true = y_true[0]
-        hum_true = y_true[1]
-        self.mae['temp_mae'] = tf.reduce_mean(tf.abs(temp_true - temp_pred))
-        self.mae['hum_mae'] = tf.reduce_mean(tf.abs(hum_true - hum_pred))
+        error = tf.abs(y_pred-y_true)
+        error = tf.reduce_mean(error, axis=0)
+        self.total.assign_add(error)
+        self.count.assign_add(1.)
+        return
 
+    def reset_states(self):
+        self.count.assign(tf.zeros_like(self.count))
+        self.total.assign(tf.zeros_like(self.total))
+
+    # after we have updated for all the dataset we return the result
     def result(self):
-        return self.mae
+        result = tf.math.divide_no_nan(self.total, self.count)
+        return result
 
 
 def main():
