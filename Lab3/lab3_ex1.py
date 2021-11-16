@@ -8,10 +8,10 @@ from tensorflow import keras
 
 class WindowGenerator:
     def __init__(self, input_width, label_options, mean, std):
-        self.input_width = input_width # the number of samples contained in a single window
+        self.input_width = input_width  # the number of samples contained in a single window
         self.label_options = label_options
-        self.mean = tf.reshape(tf.convert_to_tensor(mean), [1, 1, 2]) # sec arg is the shape and during training the first dim is batch
-        self.std = tf.reshape(tf.convert_to_tensor(std), [1, 1, 2]) #
+        self.mean = tf.reshape(tf.convert_to_tensor(mean), [1, 1, 2])  # sec arg is the shape and during training the first dim is batch
+        self.std = tf.reshape(tf.convert_to_tensor(std), [1, 1, 2])
 
     def split_window(self, features):
         # here the assumption is that features already contains 7 values
@@ -57,11 +57,29 @@ class WindowGenerator:
         return ds
 
 
+class customMAE(keras.metrics.Metric):
+    def __init__(self, name='custom_MAE'):
+        super(customMAE, self).__init__(name=name)
+        self.mae = {}
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        temp_pred = y_pred[0]
+        hum_pred = y_pred[1]
+        temp_true = y_true[0]
+        hum_true = y_true[1]
+        self.mae['temp_mae'] = tf.reduce_mean(tf.abs(temp_true - temp_pred))
+        self.mae['hum_mae'] = tf.reduce_mean(tf.abs(hum_true - hum_pred))
+
+    def result(self):
+        return self.mae
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, help='model name among mlp cnn and lstm')
     parser.add_argument('--labels', type=int, default=0,
                         help='0 for temp forecasting, 1 for hum forecasting, 2 or more for both')
+    parser.add_argument('--saved_model_dir', type=str, default=None)
     args = parser.parse_args()
 
     seed = 42
@@ -122,10 +140,16 @@ def main():
             keras.layers.Dense(units=1)
         ])
 
+    if args.labels >= 2:
+        new_mae = customMAE()
+        metrics = [new_mae]
+    else:
+        metrics = [keras.metrics.MeanAbsoluteError()]
+
     model.compile(
         optimizer='adam',
         loss=keras.losses.MeanSquaredError(),
-        metrics=[keras.metrics.MeanAbsoluteError()]
+        metrics=metrics
     )
 
     # let's train for 20 epochs
@@ -133,6 +157,11 @@ def main():
     history = model.fit(train_ds, validation_data=val_ds, epochs=20)
     test_loss, test_mae = model.evaluate(test_ds)
     print("{} \n The MAE is: {}".format(model.summary(), test_mae))
+
+    if args.saved_model_dir is not None:
+        run_model = tf.function(lambda x: model(x))
+        concrete_func = run_model.get_concrete_function(tf.TensorSpec([1, 6, 2], tf.float32))
+        model.save(args.saved_model_dir, signatures=concrete_func)
 
 
 if __name__ == '__main__':
