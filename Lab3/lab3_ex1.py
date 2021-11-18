@@ -5,7 +5,6 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 
-
 class WindowGenerator:
     def __init__(self, input_width, label_options, mean, std):
         self.input_width = input_width  # the number of samples contained in a single window
@@ -59,7 +58,7 @@ class WindowGenerator:
 
 class customMAE(keras.metrics.Metric):
     def __init__(self, name='custom_MAE', **kwargs):
-        super(customMAE, self).__init__(name=name, **kwargs)
+        super().__init__(name=name, **kwargs)
         # MAE: we need the sum --> total, and the count --> count to compute the mean
         self.total = self.add_weight('total', initializer='zero', shape=(2,))
         self.count = self.add_weight('count', initializer='zeros')
@@ -76,6 +75,7 @@ class customMAE(keras.metrics.Metric):
     def reset_states(self):
         self.count.assign(tf.zeros_like(self.count))
         self.total.assign(tf.zeros_like(self.total))
+        return
 
     # after we have updated for all the dataset we return the result
     def result(self):
