@@ -5,6 +5,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 
+
 class WindowGenerator:
     def __init__(self, input_width, label_options, mean, std):
         self.input_width = input_width  # the number of samples contained in a single window

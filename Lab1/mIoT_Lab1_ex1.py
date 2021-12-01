@@ -3,13 +3,21 @@ import adafruit_dht
 import pandas as pd
 import datetime
 import time
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--freq', default=1, help='frequency')
+parser.add_argument('--period', default=6, help='period of sampling')
+parser.add_argument('--output_path', default='WORK_DIR/Ex_Frank/LABS/recordings.csv')
+args = parser.parse_args()
+
 
 # Exercise 1: Read from a DHT sensor and generate csv
 dht_device = adafruit_dht.DHT11(D4)
 temperature = dht_device.temperature
 humidity = dht_device.humidity
-freq = 5
-period = 20
+freq = args.freq
+period = args.period
 temps_list = []
 hum_list = []
 dates = []
@@ -36,5 +44,5 @@ temps = pd.Series(temps_list)
 hums = pd.Series(hum_list)
 
 pd.DataFrame({'Date': dates, 'Hour': hours, 'Temperature': temps, 'Humidity': hums})\
-    .to_csv('WORK_DIR/Ex_Frank/recordings.csv', header=False, index=False, index_label=None)
+    .to_csv(args.output_path, header=False, index=False, index_label=None)
 
