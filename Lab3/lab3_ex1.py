@@ -125,6 +125,8 @@ def main():
     val_ds = generator.make_dataset(val_data, False)
     test_ds = generator.make_dataset(test_data, False)
 
+    final_units = max(1, LABEL_OPTIONS)
+
     if args.model == 'mlp':
         model = keras.Sequential([
             keras.layers.Flatten(),
@@ -132,7 +134,7 @@ def main():
             keras.layers.ReLU(),
             keras.layers.Dense(units=128),
             keras.layers.ReLU(),
-            keras.layers.Dense(units=1)
+            keras.layers.Dense(units=final_units)
         ])
     elif args.model == 'cnn':
         model = keras.Sequential([
@@ -141,13 +143,13 @@ def main():
             keras.layers.Flatten(),
             keras.layers.Dense(units=64),
             keras.layers.ReLU(),
-            keras.layers.Dense(units=1)
+            keras.layers.Dense(units=final_units)
         ])
     elif args.model == 'lstm':
         model = keras.Sequential([
             keras.layers.LSTM(units=64),
             keras.layers.Flatten(),
-            keras.layers.Dense(units=1)
+            keras.layers.Dense(units=final_units)
         ])
 
     if args.labels >= 2:
