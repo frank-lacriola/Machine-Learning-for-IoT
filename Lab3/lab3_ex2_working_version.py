@@ -5,43 +5,6 @@ import os
 import tensorflow as tf
 from tensorflow import keras
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, required=True, help='model name')
-parser.add_argument('--mfcc', action='store_true', help='use MFCCs')
-parser.add_argument('--silence', action='store_true', help='add silence')
-args = parser.parse_args()
-
-seed = 42
-tf.random.set_seed(seed)
-np.random.seed(seed)
-
-if args.silence is True:
-    data_dir = os.path.join('.', 'data', 'mini_speech_commands_silence')
-else:
-    zip_path = tf.keras.utils.get_file(
-        origin="http://storage.googleapis.com/download.tensorflow.org/data/mini_speech_commands.zip",
-        fname='mini_speech_commands.zip',
-        extract=True,
-        cache_dir='.', cache_subdir='data')
-
-    data_dir = os.path.join('.', 'data', 'mini_speech_commands')
-
-filenames = tf.io.gfile.glob(str(data_dir) + '/*/*')  # Return list of files matching the pattern
-filenames = tf.random.shuffle(filenames)
-num_samples = len(filenames)
-
-if args.silence is True:
-    total = 9000
-else:
-    total = 8000
-
-train_files = filenames[:int(total * 0.8)]
-val_files = filenames[int(total * 0.8): int(total * 0.9)]
-test_files = filenames[int(total * 0.9):]
-
-LABELS = np.array(tf.io.gfile.listdir(str(data_dir)))
-LABELS = LABELS[LABELS != 'README.md']
-
 
 class SignalGenerator:
     def __init__(self, labels, sampling_rate, frame_length, frame_step,
@@ -130,100 +93,137 @@ class SignalGenerator:
         return ds
 
 
-STFT_OPTIONS = {'frame_length': 256, 'frame_step': 128, 'mfcc': False}
-MFCC_OPTIONS = {'frame_length': 640, 'frame_step': 320, 'mfcc': True,
-                'lower_frequency': 20, 'upper_frequency': 4000, 'num_mel_bins': 40,
-                'num_coefficients': 10}
-
-if args.mfcc is True:
-    options = MFCC_OPTIONS
-    strides = [2, 1]
-else:
-    options = STFT_OPTIONS
-    strides = [2, 2]
-
-generator = SignalGenerator(LABELS, 16000, **options)
-train_ds = generator.make_dataset(train_files, True)
-val_ds = generator.make_dataset(val_files, False)
-test_ds = generator.make_dataset(test_files, False)
-
-if args.silence is True:
-    units = 9
-else:
-    units = 8
-
-# Let us now build our models
-
-if args.model == 'mlp':
-    model = keras.Sequential([
-        keras.layers.Flatten(),
-        keras.layers.Dense(units=256),
-        keras.layers.ReLU(),
-        keras.layers.Dense(units=256),
-        keras.layers.ReLU(),
-        keras.layers.Dense(units=256),
-        keras.layers.ReLU(),
-        keras.layers.Dense(units=8)
-    ])
-
-elif args.model == 'cnn':
-    model = keras.Sequential([
-        keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=strides, use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.GlobalAveragePooling2D(),
-        keras.layers.Dense(units=8)
-    ])
-
-elif args.model == 'ds-cnn':
-    model = keras.Sequential([
-        keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=strides, use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.DepthwiseConv2D(kernel_size=[3, 3], strides=[1, 1], use_bias=False),
-        keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.DepthwiseConv2D(kernel_size=[3, 3], strides=[1, 1], use_bias=False),
-        keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], use_bias=False),
-        keras.layers.BatchNormalization(momentum=0.1),
-        keras.layers.ReLU(),
-        keras.layers.GlobalAveragePooling2D(),
-        keras.layers.Dense(units=8)
-    ])
-
-metrics = [keras.metrics.SparseCategoricalAccuracy()]
-
-model.compile(
-    optimizer='adam',
-    loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=metrics
-)
-
-
 def resize_stft(stft, label):
     return tf.image.resize(stft, [32, 32]), label
 
 
-# let's train for 20 epochs
-if not args.mfcc:
-    train_ds = train_ds.map(resize_stft)
-    val_ds = val_ds.map(resize_stft)
-    test_ds = test_ds.map(resize_stft)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', type=str, required=True, help='model name')
+    parser.add_argument('--mfcc', action='store_true', help='use MFCCs')
+    parser.add_argument('--silence', action='store_true', help='add silence')
+    args = parser.parse_args()
 
-model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath='./checkpoints',
-    save_weights_only=False,
-    monitor='sparse_categorical_accuracy',
-    mode='max',
-    save_best_only=True)
+    seed = 42
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
 
-history = model.fit(train_ds, validation_data=val_ds, epochs=20, callbacks=[model_checkpoint_callback])
-test_loss, test_acc = model.evaluate(test_ds)
-print("{} \n The accuracy is: {}".format(model.summary(), test_acc))
+    if args.silence is True:
+        data_dir = os.path.join('.', 'data', 'mini_speech_commands_silence')
+    else:
+        zip_path = tf.keras.utils.get_file(
+            origin="http://storage.googleapis.com/download.tensorflow.org/data/mini_speech_commands.zip",
+            fname='mini_speech_commands.zip',
+            extract=True,
+            cache_dir='.', cache_subdir='data')
+
+        data_dir = os.path.join('.', 'data', 'mini_speech_commands')
+
+    filenames = tf.io.gfile.glob(str(data_dir) + '/*/*')  # Return list of files matching the pattern
+    filenames = tf.random.shuffle(filenames)
+    num_samples = len(filenames)
+
+    if args.silence is True:
+        total = 9000
+    else:
+        total = 8000
+
+    train_files = filenames[:int(total * 0.8)]
+    val_files = filenames[int(total * 0.8): int(total * 0.9)]
+    test_files = filenames[int(total * 0.9):]
+
+    LABELS = np.array(tf.io.gfile.listdir(str(data_dir)))
+    LABELS = LABELS[LABELS != 'README.md']
+
+    STFT_OPTIONS = {'frame_length': 256, 'frame_step': 128, 'mfcc': False}
+    MFCC_OPTIONS = {'frame_length': 640, 'frame_step': 320, 'mfcc': True,
+                    'lower_frequency': 20, 'upper_frequency': 4000, 'num_mel_bins': 40,
+                    'num_coefficients': 10}
+
+    if args.mfcc is True:
+        options = MFCC_OPTIONS
+        strides = [2, 1]
+    else:
+        options = STFT_OPTIONS
+        strides = [2, 2]
+
+    generator = SignalGenerator(LABELS, 16000, **options)
+    train_ds = generator.make_dataset(train_files, True)
+    val_ds = generator.make_dataset(val_files, False)
+    test_ds = generator.make_dataset(test_files, False)
+
+    if args.silence is True:
+        units = 9
+    else:
+        units = 8
+
+    # Let us now build our models
+
+    if args.model == 'mlp':
+        model = keras.Sequential([
+            keras.layers.Flatten(),
+            keras.layers.Dense(units=256),
+            keras.layers.ReLU(),
+            keras.layers.Dense(units=256),
+            keras.layers.ReLU(),
+            keras.layers.Dense(units=256),
+            keras.layers.ReLU(),
+            keras.layers.Dense(units=8)
+        ])
+
+    elif args.model == 'cnn':
+        model = keras.Sequential([
+            keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=strides, use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.GlobalAveragePooling2D(),
+            keras.layers.Dense(units=8)
+        ])
+
+    elif args.model == 'ds-cnn':
+        model = keras.Sequential([
+            keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=strides, use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.DepthwiseConv2D(kernel_size=[3, 3], strides=[1, 1], use_bias=False),
+            keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.DepthwiseConv2D(kernel_size=[3, 3], strides=[1, 1], use_bias=False),
+            keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], use_bias=False),
+            keras.layers.BatchNormalization(momentum=0.1),
+            keras.layers.ReLU(),
+            keras.layers.GlobalAveragePooling2D(),
+            keras.layers.Dense(units=8)
+        ])
+
+    metrics = [keras.metrics.SparseCategoricalAccuracy()]
+
+    model.compile(
+        optimizer='adam',
+        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=metrics
+    )
+
+    # let's train for 20 epochs
+    if not args.mfcc:
+        train_ds = train_ds.map(resize_stft)
+        val_ds = val_ds.map(resize_stft)
+        test_ds = test_ds.map(resize_stft)
+
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath='./checkpoints',
+        save_weights_only=False,
+        monitor='sparse_categorical_accuracy',
+        mode='max',
+        save_best_only=True)
+
+    history = model.fit(train_ds, validation_data=val_ds, epochs=20, callbacks=[model_checkpoint_callback])
+    test_loss, test_acc = model.evaluate(test_ds)
+    print("{} \n The accuracy is: {}".format(model.summary(), test_acc))
