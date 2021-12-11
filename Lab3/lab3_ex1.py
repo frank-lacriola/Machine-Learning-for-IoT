@@ -61,7 +61,7 @@ class customMAE(keras.metrics.Metric):
     def __init__(self, name='custom_MAE', **kwargs):
         super().__init__(name=name, **kwargs)
         # MAE: we need the sum --> total, and the count --> count to compute the mean
-        self.total = self.add_weight('total', initializer='zero', shape=(2,))
+        self.total = self.add_weight('total', initializer='zeros', shape=(2,))
         self.count = self.add_weight('count', initializer='zeros')
 
     # We have to iterate over all the dataset and update the state vars
